@@ -89,7 +89,7 @@ export function CdnExporterTab() {
         </div>
 
         {/* Inputs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs mb-4">
           <div>
             <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Backend Host</label>
             <input
@@ -171,11 +171,11 @@ export function CdnExporterTab() {
 
       {/* Code Viewer */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2.5">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2.5 gap-2">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
             <button
               onClick={() => setActivePlatform('nginx')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                 activePlatform === 'nginx' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -183,7 +183,7 @@ export function CdnExporterTab() {
             </button>
             <button
               onClick={() => setActivePlatform('fastly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                 activePlatform === 'fastly' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -191,7 +191,7 @@ export function CdnExporterTab() {
             </button>
             <button
               onClick={() => setActivePlatform('cloudflare')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                 activePlatform === 'cloudflare' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -199,7 +199,7 @@ export function CdnExporterTab() {
             </button>
             <button
               onClick={() => setActivePlatform('cloudfront')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition shrink-0 whitespace-nowrap ${
                 activePlatform === 'cloudfront' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -209,7 +209,7 @@ export function CdnExporterTab() {
 
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition shadow"
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-500 text-white transition shadow shrink-0 whitespace-nowrap"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? 'Copied Snippet' : 'Copy Code'}

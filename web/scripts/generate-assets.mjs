@@ -134,20 +134,20 @@ async function main() {
   await page.setContent(`<!DOCTYPE html><html><body style="margin:0;background:transparent;display:flex;align-items:center;justify-content:center;">${svgContent}</body></html>`);
   await page.screenshot({ path: path.join(targetDir, 'logo.png'), omitBackground: true });
 
-  console.log('2. Navigating to EdgeLens Studio at http://localhost:8085...');
+  console.log('2. Navigating to EdgeLens Studio at http://localhost:8080...');
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
-  await page.goto('http://localhost:8085', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://localhost:8080', { waitUntil: 'domcontentloaded' });
   await new Promise((r) => setTimeout(r, 1200));
 
   // Seed sample requests
   await page.evaluate(async () => {
     try {
-      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8085/mock/scenarios/stale-while-revalidate'));
-      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8085/mock/scenarios/product/42'));
-      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8085/mock/scenarios/vary-user-agent'), {
+      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8080/mock/scenarios/stale-while-revalidate'));
+      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8080/mock/scenarios/product/42'));
+      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8080/mock/scenarios/vary-user-agent'), {
         headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' }
       });
-      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8085/mock/scenarios/stale-while-revalidate'));
+      await fetch('/proxy?url=' + encodeURIComponent('http://localhost:8080/mock/scenarios/stale-while-revalidate'));
     } catch (e) {}
   });
 
@@ -157,43 +157,65 @@ async function main() {
   async function selectTab(tabLabel) {
     await page.evaluate((label) => {
       const btns = Array.from(document.querySelectorAll('header nav button'));
-      const target = btns.find(b => b.textContent && b.textContent.includes(label));
+      const target = btns.find(b => b.textContent && b.textContent.trim().startsWith(label));
       if (target) (target).click();
     }, tabLabel);
     await new Promise((r) => setTimeout(r, 1000));
   }
 
-  // 1. edgelens-1.png: Traffic & Explainer
-  console.log('Capturing edgelens-1.png...');
-  await selectTab('Traffic & Explainer');
+  // 1. edgelens-1.png: Traffic tab
+  console.log('Capturing edgelens-1.png (Traffic)...');
+  await selectTab('Traffic');
+  await page.evaluate(() => {
+    const firstRow = document.querySelector('div.cursor-pointer');
+    if (firstRow) (firstRow).click();
+  });
+  await new Promise((r) => setTimeout(r, 600));
   await page.screenshot({ path: path.join(targetDir, 'edgelens-1.png'), fullPage: false });
 
-  // 2. edgelens-2.png: Surrogate Keys
-  console.log('Capturing edgelens-2.png...');
-  await selectTab('Surrogate Keys');
+  // 2. edgelens-2.png: Surrogate Keys tab
+  console.log('Capturing edgelens-2.png (Keys)...');
+  await selectTab('Keys');
+  await new Promise((r) => setTimeout(r, 600));
   await page.screenshot({ path: path.join(targetDir, 'edgelens-2.png'), fullPage: false });
 
-  // 3. edgelens-3.png: Stampede Lab
-  console.log('Capturing edgelens-3.png...');
-  await selectTab('Stampede Lab');
-  const runBtn = await page.$('button.bg-amber-600');
-  if (runBtn) {
-    await runBtn.click();
-    await new Promise((r) => setTimeout(r, 2200));
-  }
+  // 3. edgelens-3.png: Vary Matrix tab
+  console.log('Capturing edgelens-3.png (Vary)...');
+  await selectTab('Vary');
+  await page.evaluate(() => {
+    const analyzeBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Analyze'));
+    if (analyzeBtn) analyzeBtn.click();
+  });
+  await new Promise((r) => setTimeout(r, 800));
   await page.screenshot({ path: path.join(targetDir, 'edgelens-3.png'), fullPage: false });
 
-  // 4. edgelens-4.png: Mock Origin
-  console.log('Capturing edgelens-4.png...');
-  await selectTab('Mock Origin');
+  // 4. edgelens-4.png: Stampede Lab tab
+  console.log('Capturing edgelens-4.png (Stampede)...');
+  await selectTab('Stampede');
+  await page.evaluate(() => {
+    const runBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Stampede Simulation'));
+    if (runBtn) runBtn.click();
+  });
+  await new Promise((r) => setTimeout(r, 2000));
   await page.screenshot({ path: path.join(targetDir, 'edgelens-4.png'), fullPage: false });
 
-  // 5. Record Frames for animated demo GIF
+  // 5. edgelens-mobile.png: Mobile viewport
+  console.log('Capturing edgelens-mobile.png (390px)...');
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+  await selectTab('Traffic');
+  await new Promise((r) => setTimeout(r, 800));
+  await page.screenshot({ path: path.join(targetDir, 'edgelens-mobile.png'), fullPage: false });
+
+  // Reset viewport for GIF frames
+  await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+  await new Promise((r) => setTimeout(r, 500));
+
+  // 6. Record Frames for animated demo GIF
   console.log('Recording sequence frames for edgelens_demo.gif...');
   if (!fs.existsSync(framesDir)) fs.mkdirSync(framesDir, { recursive: true });
 
   let frameIdx = 0;
-  const tabs = ['Traffic & Explainer', 'Surrogate Keys', 'Stampede Lab', 'Mock Origin'];
+  const tabs = ['Traffic', 'Multi-CDN', 'Vary', 'Keys', 'Stampede', 'Origin'];
   for (const tabName of tabs) {
     await selectTab(tabName);
     for (let f = 0; f < 4; f++) {

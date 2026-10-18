@@ -114,7 +114,7 @@ export function RulesTab() {
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-teal-600 hover:bg-teal-500 text-white transition shadow-lg shadow-teal-600/20"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-teal-600 hover:bg-teal-500 text-white transition shadow-lg shadow-teal-600/20 shrink-0 whitespace-nowrap"
           >
             <Plus size={14} />
             Add Rule
@@ -278,14 +278,14 @@ export function RulesTab() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition whitespace-nowrap"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-medium transition shadow-lg shadow-teal-600/20 disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-medium transition shadow-lg shadow-teal-600/20 disabled:opacity-50 whitespace-nowrap"
                 >
                   {loading ? 'Adding...' : 'Create Edge Rule'}
                 </button>

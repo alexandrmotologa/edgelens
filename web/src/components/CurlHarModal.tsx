@@ -90,10 +90,10 @@ export function CurlHarModal({ isOpen, onClose, onSelectUrl }: CurlHarModalProps
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveTab('curl')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 whitespace-nowrap ${
                 activeTab === 'curl' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -102,7 +102,7 @@ export function CurlHarModal({ isOpen, onClose, onSelectUrl }: CurlHarModalProps
             </button>
             <button
               onClick={() => setActiveTab('har')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 whitespace-nowrap ${
                 activeTab === 'har' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -142,7 +142,7 @@ export function CurlHarModal({ isOpen, onClose, onSelectUrl }: CurlHarModalProps
               <button
                 onClick={handleParseCurl}
                 disabled={loadingCurl}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition shadow-lg shadow-indigo-600/20"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition shadow-lg shadow-indigo-600/20 whitespace-nowrap"
               >
                 <Play size={14} />
                 {loadingCurl ? 'Parsing...' : 'Parse & Extract Headers'}
@@ -157,7 +157,7 @@ export function CurlHarModal({ isOpen, onClose, onSelectUrl }: CurlHarModalProps
                         onSelectUrl(parsedCurl.url);
                         onClose();
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition shadow"
+                      className="flex items-center gap-1.5 px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition shadow whitespace-nowrap"
                     >
                       Load into Inspector <ArrowRight size={12} />
                     </button>
@@ -218,7 +218,7 @@ export function CurlHarModal({ isOpen, onClose, onSelectUrl }: CurlHarModalProps
               <button
                 onClick={() => handleParseHAR()}
                 disabled={loadingHar}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition shadow-lg shadow-purple-600/20"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition shadow-lg shadow-purple-600/20 whitespace-nowrap"
               >
                 <Play size={14} />
                 {loadingHar ? 'Analyzing HAR Waterfall...' : 'Analyze HAR Waterfall'}

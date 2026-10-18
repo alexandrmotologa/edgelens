@@ -59,13 +59,17 @@ EdgeLens is an RFC 9111 HTTP caching engine, CDN edge proxy emulator, surrogate 
 | **Header Linter** | Compliance audit tool checking headers against edge performance and security guidelines |
 
 <p align="center">
-  <img src="docs/images/edgelens-1.png" alt="EdgeLens Traffic & Decision Explainer" width="48%" />
+  <img src="docs/images/edgelens-1.png" alt="EdgeLens Traffic Stream & RFC 9111 Decision Explainer" width="48%" />
   <img src="docs/images/edgelens-2.png" alt="EdgeLens Surrogate Keys & Invalidation Index" width="48%" />
 </p>
 
 <p align="center">
-  <img src="docs/images/edgelens-3.png" alt="EdgeLens Cache Stampede Lab" width="48%" />
-  <img src="docs/images/edgelens-4.png" alt="EdgeLens Mock Origin Sandbox" width="48%" />
+  <img src="docs/images/edgelens-3.png" alt="EdgeLens Vary Matrix & Fragmentation Visualizer" width="48%" />
+  <img src="docs/images/edgelens-4.png" alt="EdgeLens Cache Stampede & Request Collapsing Lab" width="48%" />
+</p>
+
+<p align="center">
+  <img src="docs/images/edgelens-mobile.png" alt="EdgeLens Mobile Responsive Interface" width="28%" />
 </p>
 
 ---

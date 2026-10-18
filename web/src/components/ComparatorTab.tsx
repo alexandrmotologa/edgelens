@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Columns, Play, AlertCircle, CheckCircle2, ArrowRight, ShieldAlert, Sparkles, Copy, Check } from 'lucide-react';
 import { ComparisonReport } from '../types';
 
@@ -11,6 +11,10 @@ export function ComparatorTab() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<ComparisonReport | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    runComparison();
+  }, []);
 
   const runComparison = async () => {
     setLoading(true);
@@ -74,7 +78,7 @@ export function ComparatorTab() {
           {report && (
             <button
               onClick={handleCopyJSON}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition whitespace-nowrap shrink-0"
             >
               {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
               {copied ? 'Copied Report' : 'Copy JSON'}
@@ -140,7 +144,7 @@ export function ComparatorTab() {
         <button
           onClick={runComparison}
           disabled={loading}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition shadow-lg shadow-indigo-600/20 disabled:opacity-50 whitespace-nowrap"
         >
           <Play size={14} />
           {loading ? 'Evaluating Flavors...' : 'Compare Across All CDNs'}
@@ -150,7 +154,7 @@ export function ComparatorTab() {
       {report && (
         <div className="space-y-6">
           {/* CDN Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {Object.entries(report.flavors).map(([key, f]) => {
               const outcomeColors: Record<string, string> = {
                 HIT: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',

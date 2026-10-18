@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Play, CheckCircle2, XCircle, Copy, Check, Terminal } from 'lucide-react';
 import { AssertionResult } from '../types';
 
@@ -12,6 +12,10 @@ export function AssertTab() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AssertionResult | null>(null);
   const [copiedCli, setCopiedCli] = useState(false);
+
+  useEffect(() => {
+    runAssertion();
+  }, []);
 
   const runAssertion = async () => {
     setLoading(true);
@@ -148,7 +152,7 @@ export function AssertTab() {
         <button
           onClick={runAssertion}
           disabled={loading}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition shadow-lg shadow-blue-600/20 disabled:opacity-50 whitespace-nowrap"
         >
           <Play size={14} />
           {loading ? 'Evaluating Assertions...' : 'Run Assertion Check'}
@@ -166,7 +170,7 @@ export function AssertTab() {
         </div>
         <button
           onClick={handleCopyCli}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition text-[11px] font-medium shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition text-[11px] font-medium shrink-0 whitespace-nowrap"
         >
           {copiedCli ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
           {copiedCli ? 'Copied' : 'Copy CLI'}
