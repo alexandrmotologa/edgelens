@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <clipPath id="squircle-clip">
+      <rect x="24" y="24" width="976" height="976" rx="220" />
+    </clipPath>
+
+    <linearGradient id="edge-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <linearGradient id="edge-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <linearGradient id="optic-prism" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="45%" stop-color="#00f5ff"/>
+      <stop offset="55%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+
+    <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />
+
+  <g clip-path="url(#squircle-clip)">
+    <circle cx="512" cy="512" r="390" fill="none" stroke="#f1f5f9" stroke-width="3" stroke-dasharray="8 8" />
+    <circle cx="512" cy="512" r="330" fill="none" stroke="#e2e8f0" stroke-width="4" />
+    <circle cx="512" cy="512" r="270" fill="none" stroke="#cbd5e1" stroke-width="2" />
+
+    <g transform="translate(512, 520)" filter="url(#subtle-shadow)">
+      <path d="
+        M -240,-180
+        L -180,-340
+        L -130,-200
+        L 0,-260
+        L 130,-200
+        L 180,-340
+        L 240,-180
+        L 290,-40
+        L 220,130
+        L 130,280
+        L 0,330
+        L -130,280
+        L -220,130
+        L -290,-40
+        Z
+      " fill="#090d16" />
+
+      <polygon points="-240,-180 -180,-340 -130,-200" fill="#1e293b" />
+      <polygon points="-210,-200 -180,-320 -150,-220" fill="#00f5ff" opacity="0.85" />
+      <polygon points="-180,-340 -170,-380 -165,-340" fill="#0284c7" />
+
+      <polygon points="240,-180 180,-340 130,-200" fill="#1e293b" />
+      <polygon points="210,-200 180,-320 150,-220" fill="#10b981" opacity="0.85" />
+      <polygon points="180,-340 170,-380 165,-340" fill="#059669" />
+
+      <polygon points="-130,-200 0,-260 0,-130" fill="#334155" />
+      <polygon points="130,-200 0,-260 0,-130" fill="#1e293b" />
+      <polygon points="-130,-200 0,-130 -140,-80" fill="#475569" />
+      <polygon points="130,-200 0,-130 140,-80" fill="#334155" />
+
+      <polygon points="-240,-180 -130,-200 -140,-80 -290,-40" fill="#1e293b" />
+      <polygon points="240,-180 130,-200 140,-80 290,-40" fill="#0f172a" />
+      <polygon points="-290,-40 -140,-80 -110,60 -220,130" fill="#334155" />
+      <polygon points="290,-40 140,-80 110,60 220,130" fill="#1e293b" />
+
+      <polygon points="-140,-80 -60,-80 -85,-15 -140,-35" fill="#050811" />
+      <polygon points="-125,-60 -75,-60 -90,-25 -120,-35" fill="url(#edge-cyan)" />
+      <polygon points="-102,-60 -92,-60 -95,-25 -98,-25" fill="#090d16" />
+
+      <polygon points="140,-80 60,-80 85,-15 140,-35" fill="#050811" />
+      <polygon points="125,-60 75,-60 90,-25 120,-35" fill="url(#edge-emerald)" />
+      <polygon points="102,-60 92,-60 95,-25 98,-25" fill="#090d16" />
+
+      <polygon points="0,-130 -60,-80 0,-10" fill="#64748b" />
+      <polygon points="0,-130 60,-80 0,-10" fill="#475569" />
+      <polygon points="-60,-80 0,-10 -50,60" fill="#334155" />
+      <polygon points="60,-80 0,-10 50,60" fill="#1e293b" />
+
+      <polygon points="0,55 -30,85 30,85" fill="#0f172a" />
+
+      <polygon points="-30,85 -110,60 -130,170 -40,165" fill="#94a3b8" opacity="0.9" />
+      <polygon points="30,85 110,60 130,170 40,165" fill="#64748b" opacity="0.9" />
+
+      <polygon points="0,110 -40,165 0,220" fill="#cbd5e1" />
+      <polygon points="0,110 40,165 0,220" fill="#94a3b8" />
+      <polygon points="-40,165 0,220 -130,280" fill="#475569" />
+      <polygon points="40,165 0,220 130,280" fill="#334155" />
+      <polygon points="0,220 -130,280 0,330" fill="#1e293b" />
+      <polygon points="0,220 130,280 0,330" fill="#0f172a" />
+
+      <path d="M -350,195 L 350,195" stroke="url(#optic-prism)" stroke-width="8" stroke-linecap="round" />
+    </g>
+  </g>
+</svg>
