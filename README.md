@@ -26,12 +26,18 @@ EdgeLens is an RFC 9111 HTTP caching engine, CDN edge proxy emulator, surrogate 
 ## Capabilities
 
 - **RFC 9111 HTTP Caching Engine**: Implements the HTTP caching specification in Go. Evaluates freshness lifetimes, computes accurate `Age` headers, and supports conditional revalidation (`If-None-Match`, `If-Modified-Since`, 304 Not Modified).
-- **Multi-Variant Vary Matrix**: Computes deterministic hash keys based on request headers specified by `Vary` (for example, `Accept-Encoding`, `Accept`), tracking distinct cache variants per URI.
-- **Cache Decision Explainer**: Generates a 5-phase diagnostic pipeline for every request, explaining why a response was a HIT, MISS, STALE, BYPASS, or REVALIDATED.
-- **Multi-CDN Flavor Emulation**: Switches between Cloudflare (`cf-cache-status`), Fastly (`X-Cache`, `Surrogate-Control`), AWS CloudFront (`X-Cache: Hit from cloudfront`), Vercel Edge (`x-vercel-cache`), and RFC 9111 generic modes.
+- **Multi-CDN Side-by-Side Comparator**: Evaluates identical URLs simultaneously across Cloudflare, Fastly, AWS CloudFront, Vercel Edge, and RFC 9111, isolating status discrepancies, header differences, and TTL variations.
+- **Vary Matrix & Fragmentation Visualizer**: Computes permutation counts, risk ratings, and memory overhead multipliers for unconstrained `Vary` combinations with concrete header normalization recommendations.
+- **Edge Rules & Transform Engine**: In-memory rule evaluation pipeline supporting query argument stripping, tracking cookie suppression, synthetic TTL overrides, and surrogate key injection.
+- **Production CDN Config Exporter**: Generates copy-paste configuration files for Nginx (`proxy_cache_valid`), Fastly VCL (`vcl_backend_response`), Cloudflare Terraform, and AWS CloudFront CachePolicy.
+- **CI/CD Cache Assertion Runner (`edgelens assert`)**: Headless verification command checking cache status, min TTL, compliance grade, and header requirements with exit codes for deployment gates.
+- **cURL & HAR (HTTP Archive) Importer**: Imports requests from pasted cURL commands or browser HAR waterfall exports directly into the edge test proxy.
+- **Interactive SWR Lifecycle Scrubber**: Visual timeline explaining the exact state (Fresh, Stale-While-Revalidate, Expired) at any point in time with simulated time offset scrubbing.
 - **Surrogate Key & Cache-Tag Invalidation**: Extracts tags from `Surrogate-Key`, `Cache-Tag`, and `Edge-Cache-Tag`. Supports instant hard purges, soft purges (serving stale during revalidation), and URL wildcard purges.
 - **Cache Stampede (Dog-Piling) Lab**: Simulates 10 to 500 concurrent requests at the exact millisecond of TTL expiration. Toggles single-flight request collapsing on and off to evaluate origin load.
-- **Embedded Mock Origin Sandbox**: Runs 7 pre-configured challenge scenarios to test leaky cookies, Vary fragmentation, zero-downtime stale-while-revalidate, and conditional ETags.
+- **Stale-If-Error High-Availability Failover**: Emulates RFC 5861 failover by serving stale cached copies when origin servers encounter 5xx errors or connection failures.
+- **Embedded Mock Origin Sandbox**: Runs 8 pre-configured challenge scenarios to test leaky cookies, Vary fragmentation, zero-downtime stale-while-revalidate, and conditional ETags.
+- **Exportable Diagnostic Reports**: 1-click standalone HTML and Markdown report generation for incident retrospectives and CDN architecture reviews.
 - **Edge Header Linter & Auditor**: Grades response headers on a scale from A+ to F, identifying security vulnerabilities like public Set-Cookie leaks and unconstrained Vary directives.
 
 ---
@@ -41,9 +47,14 @@ EdgeLens is an RFC 9111 HTTP caching engine, CDN edge proxy emulator, surrogate 
 | Workspace | Purpose |
 |---|---|
 | **Traffic &amp; Explainer** | Real-time streaming table of requests with status badges, response latencies, and 5-phase RFC 9111 diagnostic breakdowns |
+| **CDN Comparator** | Side-by-side evaluation across Cloudflare, Fastly, CloudFront, Vercel, and RFC 9111 with divergence matrix |
+| **Vary Matrix** | Interactive permutation calculator, risk score, memory overhead multiplier, and normalization rules |
+| **Edge Rules** | Custom rule pipeline for query argument normalization, cookie stripping, TTL overrides, and tag injection |
 | **Surrogate Keys** | Active tag index, blast radius entry counts, 1-click hard and soft tag purging, and audit logs |
 | **Stampede Lab** | Concurrency load generator measuring origin penetration, latency percentiles, and request collapsing efficiency |
-| **Mock Origin** | Pre-built test scenarios and dynamic route sandbox with adjustable latency and header controls |
+| **CDN Exporter** | Generate production-ready configuration code for Nginx, Fastly VCL, Cloudflare Terraform, and CloudFront |
+| **CI Assertions** | Interactive assertion builder and runner with copyable CLI flags for GitHub Actions and CI pipelines |
+| **Mock Origin** | 8 pre-built test scenarios and dynamic route sandbox with adjustable latency and header controls |
 | **CDN Flavors** | Switch edge header injection between Cloudflare, Fastly, AWS CloudFront, Vercel Edge, and RFC 9111 |
 | **Header Linter** | Compliance audit tool checking headers against edge performance and security guidelines |
 
@@ -163,11 +174,27 @@ Latency Distribution:
 Summary Note: Single-flight request collapsing successfully collapsed concurrent spikes.
 ```
 
+### 4. Run CI/CD Cache Assertions
+
+Run headless compliance checks in CI/CD pipelines with deterministic exit codes:
+
+```bash
+# Assert that responses have at least 60s TTL, no Set-Cookie, and meet Grade B
+./edgelens.exe assert \
+  --url http://localhost:8080/api/catalog \
+  --min-ttl 60s \
+  --disallow-headers "Set-Cookie" \
+  --min-grade B
+
+# Output structured JSON for automation scripts
+./edgelens.exe assert --url https://api.github.com --min-grade B --json
+```
+
 ---
 
 ## Built-in Test Scenarios
 
-The embedded mock origin server provides 7 realistic challenge scenarios:
+The embedded mock origin server provides 8 realistic challenge scenarios:
 
 1. **Vary User-Agent Fragmentation** (`/mock/scenarios/vary-user-agent`): Demonstrates how unconstrained `Vary: User-Agent` headers fragment cache hit ratios into hundreds of distinct variants.
 2. **Leaky Set-Cookie Bypass** (`/mock/scenarios/leaky-cookie`): Simulates origin servers sending session cookies on cacheable assets, which triggers security risks and CDN bypasses.
@@ -176,12 +203,14 @@ The embedded mock origin server provides 7 realistic challenge scenarios:
 5. **Cache Stampede Hotspot** (`/mock/scenarios/flash-sale`): Short 2s TTL with 200ms origin delay to test single-flight collapsing under high concurrency.
 6. **Conditional ETag Revalidation** (`/mock/scenarios/conditional-etag`): Demonstrates weak and strong ETags returning 304 Not Modified.
 7. **Authenticated Endpoint Caching** (`/mock/scenarios/authenticated-feed`): Demonstrates RFC 9111 Section 3.5 rules for caching requests containing `Authorization` headers via `public` or `s-maxage`.
+8. **Stale-If-Error High Availability Failover** (`/mock/scenarios/stale-if-error`): Demonstrates RFC 5861 failover serving cached copies with `Age` warning when origin returns 500 (`?fail=true`).
 
 ---
 
 ## Technical Documentation
 
 - [RFC 9111 HTTP Caching Engine Architecture](docs/RFC_9111_SPEC.md)
+- [CI/CD Cache Assertion Runner Guide](docs/CI_CD_ASSERTIONS.md)
 - [Surrogate Keys and Inverted Index Purging](docs/SURROGATE_KEYS.md)
 - [Single-Flight Request Collapsing and Stampede Protection](docs/STAMPEDE_COALESCING.md)
 - [Multi-CDN Flavor Comparison Matrix](docs/CDN_COMPARISON.md)

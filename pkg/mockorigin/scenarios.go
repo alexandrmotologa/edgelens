@@ -122,6 +122,22 @@ func (s *Server) registerDefaultScenarios() {
 		DelayMs:     70,
 		Description: "Demonstrates RFC 9111 Section 3.5: requests with Authorization headers can be cached if origin sends public or s-maxage.",
 	})
+
+	// Scenario 8: Stale-If-Error High-Availability Failover (RFC 5861)
+	s.RegisterRoute(MockRoute{
+		ID:         "scenario-stale-if-error",
+		Path:       "/mock/scenarios/stale-if-error",
+		Method:     http.MethodGet,
+		StatusCode: http.StatusOK,
+		Headers: map[string]string{
+			"Content-Type":  "application/json",
+			"Cache-Control": "public, max-age=5, stale-if-error=300",
+			"Surrogate-Key": "ha-service",
+		},
+		Body:        `{"scenario": "stale-if-error", "service_status": "healthy", "cluster": "eu-west-1", "notice": "Add ?fail=true to trigger simulated origin 500 failure"}`,
+		DelayMs:     50,
+		Description: "Demonstrates RFC 5861 stale-if-error: 5s TTL with 300s error window. If origin crashes (500/503), edge transparently serves stale cache.",
+	})
 }
 
 // GetScenarioURL returns the mock scenario URL for a given scenario ID.

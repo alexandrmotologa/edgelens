@@ -2,17 +2,24 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/alexandrmotologa/edgelens/pkg/assert"
 	"github.com/alexandrmotologa/edgelens/pkg/cache"
 	"github.com/alexandrmotologa/edgelens/pkg/cdn"
+	"github.com/alexandrmotologa/edgelens/pkg/cdngen"
+	"github.com/alexandrmotologa/edgelens/pkg/comparator"
 	"github.com/alexandrmotologa/edgelens/pkg/explainer"
+	"github.com/alexandrmotologa/edgelens/pkg/har"
 	"github.com/alexandrmotologa/edgelens/pkg/mockorigin"
 	"github.com/alexandrmotologa/edgelens/pkg/proxy"
+	"github.com/alexandrmotologa/edgelens/pkg/rules"
 	"github.com/alexandrmotologa/edgelens/pkg/stampede"
 	"github.com/alexandrmotologa/edgelens/pkg/surrogate"
+	"github.com/alexandrmotologa/edgelens/pkg/varymatrix"
 )
 
 // APIHandler dispatches REST endpoints for the web studio.
@@ -60,6 +67,16 @@ func (h *APIHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/stampede/run", h.handleStampedeRun)
 	mux.HandleFunc("/api/mock/routes", h.handleMockRoutes)
 	mux.HandleFunc("/api/audit", h.handleAudit)
+
+	// New feature endpoints
+	mux.HandleFunc("/api/rules", h.handleRules)
+	mux.HandleFunc("/api/rules/", h.handleRuleItem)
+	mux.HandleFunc("/api/compare", h.handleCompare)
+	mux.HandleFunc("/api/vary-matrix", h.handleVaryMatrix)
+	mux.HandleFunc("/api/export-cdn", h.handleExportCDN)
+	mux.HandleFunc("/api/assert", h.handleAssert)
+	mux.HandleFunc("/api/parse-curl", h.handleParseCurl)
+	mux.HandleFunc("/api/parse-har", h.handleParseHAR)
 }
 
 func (h *APIHandler) handleTraffic(w http.ResponseWriter, r *http.Request) {
@@ -301,6 +318,218 @@ func (h *APIHandler) handleAudit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	report := explainer.AuditHeaders(headersToAudit)
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (h *APIHandler) handleRules(w http.ResponseWriter, r *http.Request) {
+	rulesEngine := h.proxy.GetRulesEngine()
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, rulesEngine.GetRules())
+	case http.MethodPost:
+		var rule rules.Rule
+		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		rulesEngine.AddRule(rule)
+		writeJSON(w, http.StatusCreated, rulesEngine.GetRules())
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *APIHandler) handleRuleItem(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/rules/")
+	rulesEngine := h.proxy.GetRulesEngine()
+
+	if strings.HasSuffix(path, "/toggle") && r.Method == http.MethodPut {
+		id := strings.TrimSuffix(path, "/toggle")
+		var payload struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		if ok := rulesEngine.ToggleRule(id, payload.Enabled); !ok {
+			http.Error(w, "Rule not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, rulesEngine.GetRules())
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		if ok := rulesEngine.DeleteRule(path); !ok {
+			http.Error(w, "Rule not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, rulesEngine.GetRules())
+		return
+	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+type compareRequest struct {
+	Method           string              `json:"method"`
+	URL              string              `json:"url"`
+	Headers          map[string][]string `json:"headers"`
+	StatusCode       int                 `json:"statusCode"`
+	ResponseHeaders  map[string][]string `json:"responseHeaders"`
+	SimulatedAgeSecs int                 `json:"simulatedAgeSecs"`
+}
+
+func (h *APIHandler) handleCompare(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req compareRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.Method == "" {
+		req.Method = "GET"
+	}
+	if req.StatusCode == 0 {
+		req.StatusCode = 200
+	}
+
+	reqH := http.Header(req.Headers)
+	respH := http.Header(req.ResponseHeaders)
+
+	// If URL is provided and response headers are empty, fetch from live URL
+	if req.URL != "" && len(respH) == 0 {
+		fetchReq, err := http.NewRequestWithContext(r.Context(), req.Method, req.URL, nil)
+		if err == nil {
+			for k, vv := range reqH {
+				for _, v := range vv {
+					fetchReq.Header.Add(k, v)
+				}
+			}
+			resp, err := h.httpClient.Do(fetchReq)
+			if err == nil {
+				defer resp.Body.Close()
+				req.StatusCode = resp.StatusCode
+				respH = resp.Header.Clone()
+			}
+		}
+	}
+
+	report := comparator.CompareRequestResponse(req.Method, req.URL, reqH, req.StatusCode, respH, req.SimulatedAgeSecs)
+	writeJSON(w, http.StatusOK, report)
+}
+
+type varyMatrixRequest struct {
+	VaryHeader string `json:"varyHeader"`
+}
+
+func (h *APIHandler) handleVaryMatrix(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req varyMatrixRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	report := varymatrix.AnalyzeVaryHeader(req.VaryHeader)
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (h *APIHandler) handleExportCDN(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var opts cdngen.ConfigOptions
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	configs := cdngen.GenerateAll(opts)
+	writeJSON(w, http.StatusOK, configs)
+}
+
+func (h *APIHandler) handleAssert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var opts assert.AssertionOptions
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if opts.URL == "" {
+		http.Error(w, "Missing target URL", http.StatusBadRequest)
+		return
+	}
+
+	result, err := assert.RunAssertion(opts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+type parseCurlRequest struct {
+	Command string `json:"command"`
+}
+
+func (h *APIHandler) handleParseCurl(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req parseCurlRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	parsed, err := har.ParseCurl(req.Command)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, parsed)
+}
+
+func (h *APIHandler) handleParseHAR(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+
+	report, err := har.ParseHAR(body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, report)
 }
 

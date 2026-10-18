@@ -90,7 +90,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Duration(route.DelayMs) * time.Millisecond)
 	}
 
-	// Check conditional requests (ETag / If-None-Match)
+	// Check if simulated failure is requested via query parameter
+	if r.URL.Query().Get("fail") == "true" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Date", time.Now().UTC().Format(http.TimeFormat))
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error": "Simulated Origin 500 Internal Server Error", "status": 500}`))
+		return
+	}
 	if etag := route.Headers["ETag"]; etag != "" {
 		if r.Header.Get("If-None-Match") == etag {
 			w.WriteHeader(http.StatusNotModified)

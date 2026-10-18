@@ -7,6 +7,11 @@ import (
 
 // CalculateFreshnessLifetime determines the freshness lifetime of a response per RFC 9111 Section 4.2.1.
 func CalculateFreshnessLifetime(rd ResponseDirectives, statusCode int, header http.Header, now time.Time) time.Duration {
+	// 0. Surrogate-Control max-age takes absolute precedence on edge CDNs (Fastly/Surrogate architecture)
+	if rd.SurrogateMaxAge != nil {
+		return time.Duration(*rd.SurrogateMaxAge) * time.Second
+	}
+
 	// 1. s-maxage takes precedence on shared caches (edge CDN proxy)
 	if rd.SMaxAge != nil {
 		return time.Duration(*rd.SMaxAge) * time.Second

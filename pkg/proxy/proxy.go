@@ -13,6 +13,7 @@ import (
 	"github.com/alexandrmotologa/edgelens/pkg/cache"
 	"github.com/alexandrmotologa/edgelens/pkg/cdn"
 	"github.com/alexandrmotologa/edgelens/pkg/explainer"
+	"github.com/alexandrmotologa/edgelens/pkg/rules"
 	"github.com/alexandrmotologa/edgelens/pkg/stampede"
 	"github.com/alexandrmotologa/edgelens/pkg/surrogate"
 )
@@ -27,6 +28,7 @@ type Proxy struct {
 	purgeEngine    *surrogate.PurgeEngine
 	cdnModifier    *cdn.HeaderModifier
 	coalescer      *stampede.Coalescer
+	rulesEngine    *rules.Engine
 	httpClient     *http.Client
 	defaultOrigin  string
 	mu             sync.RWMutex
@@ -55,11 +57,17 @@ func NewProxy(cfg Config, store *cache.Store, index *surrogate.Index, purgeEngin
 		purgeEngine:    purgeEngine,
 		cdnModifier:    cdn.NewHeaderModifier(cfg.CDNConfig),
 		coalescer:      stampede.NewCoalescer(),
+		rulesEngine:    rules.NewEngine(),
 		httpClient:     &http.Client{Transport: transport, Timeout: 30 * time.Second},
 		defaultOrigin:  cfg.DefaultOrigin,
 		recentExps:     make([]*explainer.Explanation, 0, 100),
 		maxRecentCount: 100,
 	}
+}
+
+// GetRulesEngine returns the active edge rules engine.
+func (p *Proxy) GetRulesEngine() *rules.Engine {
+	return p.rulesEngine
 }
 
 // AddListener registers an event consumer for real-time telemetry streaming (SSE).
@@ -114,9 +122,16 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse client request directives
+	// Apply edge request rules (e.g. query param stripping, cookie stripping, bypass)
+	ruleRes := p.rulesEngine.ApplyRequestRules(r, targetURL)
+	targetURL = ruleRes.ModifiedURL
 	reqDir := cache.ParseRequestDirectives(r.Header.Values("Cache-Control"))
 	primaryKey := cache.GeneratePrimaryKey(r.Method, targetURL)
+
+	if ruleRes.BypassCache {
+		p.handleBypass(w, r, targetURL, primaryKey, reqDir, txID, startTime, ruleRes.BypassReason)
+		return
+	}
 
 	// Check method cacheability
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -297,16 +312,40 @@ func (p *Proxy) fetchAndCache(
 	originLatencyMs := time.Since(originStart).Milliseconds()
 	totalLatencyMs := time.Since(startTime).Milliseconds()
 
-	if result.Err != nil {
-		http.Error(w, fmt.Sprintf("EdgeLens Upstream Error: %v", result.Err), http.StatusBadGateway)
-		return
+	if result.Err != nil || result.StatusCode >= 500 {
+		// Check for stale-if-error fallback if an expired/stale entry exists in cache
+		if cachedEntry, found := p.store.LookupVariant(primaryKey, r.Header); found && cachedEntry.SIEDuration > 0 {
+			now := time.Now()
+			currentAge := cache.CalculateCurrentAge(cachedEntry, now)
+			if currentAge <= cachedEntry.FreshnessLifetime+cachedEntry.SIEDuration {
+				cachedRespDir := cache.ParseResponseDirectives(cachedEntry.Headers.Values("Cache-Control"), cachedEntry.Headers.Values("Surrogate-Control"))
+				p.serveHit(w, r, cachedEntry, reqDir, cachedRespDir, primaryKey, txID, startTime, currentAge, cache.StatusStale)
+				return
+			}
+		}
+
+		if result.Err != nil {
+			http.Error(w, fmt.Sprintf("EdgeLens Upstream Error: %v", result.Err), http.StatusBadGateway)
+			return
+		}
 	}
+
+	// Apply edge response rules (e.g. override TTL, inject surrogate keys)
+	respRuleRes := p.rulesEngine.ApplyResponseRules(targetURL, result.StatusCode, result.Header)
 
 	respDir := cache.ParseResponseDirectives(
 		result.Header.Values("Cache-Control"),
 		result.Header.Values("Surrogate-Control"),
 	)
+	if respRuleRes.OverrideTTL != nil {
+		ovTTL := *respRuleRes.OverrideTTL
+		respDir.SMaxAge = &ovTTL
+	}
+
 	tags := surrogate.ExtractTags(result.Header)
+	if len(respRuleRes.InjectedTags) > 0 {
+		tags = append(tags, respRuleRes.InjectedTags...)
+	}
 	varyHeaders := result.Header.Values("Vary")
 	varyHash, varyCaptured := cache.ComputeVaryHash(varyHeaders, r.Header)
 	fullKey := cache.GenerateFullKey(primaryKey, varyHash)
@@ -420,14 +459,21 @@ func (p *Proxy) revalidateSynchronously(
 	}
 
 	resp, err := p.httpClient.Do(req)
-	if err != nil {
-		// If origin errors out and cached entry has stale-if-error, serve stale!
-		if cachedEntry.SIEDuration > 0 {
-			p.serveHit(w, r, cachedEntry, reqDir, respDir, primaryKey, txID, startTime, cache.CalculateCurrentAge(cachedEntry, time.Now()), cache.StatusStale)
+	now := time.Now()
+	currentAge := cache.CalculateCurrentAge(cachedEntry, now)
+	if err != nil || (resp != nil && resp.StatusCode >= 500) {
+		// If origin errors out (5xx or network error) and cached entry has stale-if-error, serve stale!
+		if cachedEntry.SIEDuration > 0 && currentAge <= cachedEntry.FreshnessLifetime+cachedEntry.SIEDuration {
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			p.serveHit(w, r, cachedEntry, reqDir, respDir, primaryKey, txID, startTime, currentAge, cache.StatusStale)
 			return
 		}
-		http.Error(w, fmt.Sprintf("EdgeLens Revalidation Upstream Error: %v", err), http.StatusBadGateway)
-		return
+		if err != nil {
+			http.Error(w, fmt.Sprintf("EdgeLens Revalidation Upstream Error: %v", err), http.StatusBadGateway)
+			return
+		}
 	}
 	defer resp.Body.Close()
 
@@ -494,7 +540,7 @@ func (p *Proxy) revalidateSynchronously(
 	varyHash, varyCaptured := cache.ComputeVaryHash(varyHeaders, r.Header)
 	fullKey := cache.GenerateFullKey(primaryKey, varyHash)
 
-	now := time.Now()
+	now = time.Now()
 	freshnessLifetime := cache.CalculateFreshnessLifetime(newRespDir, resp.StatusCode, resp.Header, now)
 
 	cachedEntry.Headers = resp.Header.Clone()

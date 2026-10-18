@@ -31,6 +31,7 @@ type ResponseDirectives struct {
 	Immutable            bool
 	MaxAge               *int
 	SMaxAge              *int
+	SurrogateMaxAge      *int
 	StaleWhileRevalidate *int
 	StaleIfError         *int
 }

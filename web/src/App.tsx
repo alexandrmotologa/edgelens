@@ -21,7 +21,13 @@ import {
   Globe,
   Radio,
   Sliders,
-  Sparkles
+  Sparkles,
+  Columns,
+  Download,
+  ShieldCheck,
+  Upload,
+  Copy,
+  Check
 } from 'lucide-react';
 import {
   Explanation,
@@ -35,9 +41,21 @@ import {
   CDNFlavor,
   CDNConfig
 } from './types';
+import { ComparatorTab } from './components/ComparatorTab';
+import { VaryMatrixTab } from './components/VaryMatrixTab';
+import { RulesTab } from './components/RulesTab';
+import { CdnExporterTab } from './components/CdnExporterTab';
+import { AssertTab } from './components/AssertTab';
+import { CurlHarModal } from './components/CurlHarModal';
+import { SwrScrubber } from './components/SwrScrubber';
+import { exportDiagnosticHTML, generateDiagnosticMarkdown } from './components/ReportExporter';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'traffic' | 'surrogate' | 'stampede' | 'cdn' | 'mock' | 'audit'>('traffic');
+  const [activeTab, setActiveTab] = useState<
+    'traffic' | 'comparator' | 'varymatrix' | 'rules' | 'exportcdn' | 'assert' | 'surrogate' | 'stampede' | 'cdn' | 'mock' | 'audit'
+  >('traffic');
+  const [showCurlHarModal, setShowCurlHarModal] = useState(false);
+  const [copiedMd, setCopiedMd] = useState(false);
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [cdnConfig, setCdnConfig] = useState<CDNConfig | null>(null);
   const [explanations, setExplanations] = useState<Explanation[]>([]);
@@ -343,54 +361,109 @@ export function App() {
         </div>
 
         {/* Workspaces Tabs */}
-        <nav className="flex items-center space-x-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 text-xs">
+        <nav className="flex items-center space-x-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 text-xs overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('traffic')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
               activeTab === 'traffic'
                 ? 'bg-sky-500 text-white shadow'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            <span>Traffic &amp; Explainer</span>
+            <span>Traffic</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('comparator')}
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
+              activeTab === 'comparator'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Columns className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Multi-CDN</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('varymatrix')}
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
+              activeTab === 'varymatrix'
+                ? 'bg-purple-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-purple-400" />
+            <span>Vary Matrix</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('rules')}
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
+              activeTab === 'rules'
+                ? 'bg-teal-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5 text-teal-400" />
+            <span>Edge Rules</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('exportcdn')}
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
+              activeTab === 'exportcdn'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Export CDN</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('assert')}
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
+              activeTab === 'assert'
+                ? 'bg-blue-600 text-white shadow'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+            <span>CI Assert</span>
           </button>
           <button
             onClick={() => setActiveTab('surrogate')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
               activeTab === 'surrogate'
                 ? 'bg-sky-500 text-white shadow'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Surrogate Keys ({tags.length})</span>
+            <span>Surrogate ({tags.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('stampede')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
               activeTab === 'stampede'
                 ? 'bg-sky-500 text-white shadow'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Flame className="w-3.5 h-3.5 text-amber-400" />
-            <span>Stampede Lab</span>
+            <span>Stampede</span>
           </button>
           <button
             onClick={() => setActiveTab('cdn')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
               activeTab === 'cdn'
                 ? 'bg-sky-500 text-white shadow'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Globe className="w-3.5 h-3.5" />
-            <span>CDN Flavors</span>
+            <span>Flavors</span>
           </button>
           <button
             onClick={() => setActiveTab('mock')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
               activeTab === 'mock'
                 ? 'bg-sky-500 text-white shadow'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -401,14 +474,14 @@ export function App() {
           </button>
           <button
             onClick={() => setActiveTab('audit')}
-            className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1.5 ${
+            className={`px-2.5 py-1.5 rounded-md font-medium transition-colors flex items-center space-x-1 shrink-0 ${
               activeTab === 'audit'
                 ? 'bg-sky-500 text-white shadow'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
             }`}
           >
             <Shield className="w-3.5 h-3.5" />
-            <span>Header Linter</span>
+            <span>Linter</span>
           </button>
         </nav>
 
@@ -445,7 +518,7 @@ export function App() {
           <button
             onClick={() => triggerTestRequest(testUrl)}
             disabled={loadingRequest}
-            className="bg-sky-500 hover:bg-sky-400 text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-2 transition shadow disabled:opacity-50"
+            className="bg-sky-500 hover:bg-sky-400 text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-2 transition shadow disabled:opacity-50 shrink-0"
           >
             {loadingRequest ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -453,6 +526,13 @@ export function App() {
               <Play className="w-3.5 h-3.5 fill-current" />
             )}
             <span>Execute</span>
+          </button>
+          <button
+            onClick={() => setShowCurlHarModal(true)}
+            className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition shadow shrink-0"
+          >
+            <Upload className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Import cURL / HAR</span>
           </button>
         </div>
 
@@ -546,13 +626,41 @@ export function App() {
                         Key: {selectedExp.primaryKey}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs text-slate-400 block">Total Latency</span>
-                      <span className="text-sm font-mono font-bold text-sky-400">
-                        {selectedExp.latencyMs}ms
-                      </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => exportDiagnosticHTML(selectedExp)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 shadow"
+                          title="Download standalone HTML diagnostic report"
+                        >
+                          <Download size={12} className="text-emerald-400" />
+                          <span>Export HTML</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(generateDiagnosticMarkdown(selectedExp));
+                            setCopiedMd(true);
+                            setTimeout(() => setCopiedMd(false), 2000);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 shadow"
+                          title="Copy formatted Markdown report for GitHub / JIRA"
+                        >
+                          {copiedMd ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                          <span>{copiedMd ? 'Copied' : 'Copy MD'}</span>
+                        </button>
+                      </div>
+
+                      <div className="text-right pl-2 border-l border-slate-800">
+                        <span className="text-[10px] text-slate-400 block uppercase font-mono">Latency</span>
+                        <span className="text-sm font-mono font-bold text-sky-400">
+                          {selectedExp.latencyMs}ms
+                        </span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* SWR Lifecycle Scrubber */}
+                  <SwrScrubber exp={selectedExp} />
 
                   {/* Recommendations Alert Box */}
                   {selectedExp.recommendations && selectedExp.recommendations.length > 0 && (
@@ -654,6 +762,41 @@ export function App() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* TAB: MULTI-CDN SIDE-BY-SIDE COMPARATOR */}
+        {activeTab === 'comparator' && (
+          <div className="flex-1 overflow-y-auto">
+            <ComparatorTab />
+          </div>
+        )}
+
+        {/* TAB: VARY MATRIX & FRAGMENTATION VISUALIZER */}
+        {activeTab === 'varymatrix' && (
+          <div className="flex-1 overflow-y-auto">
+            <VaryMatrixTab />
+          </div>
+        )}
+
+        {/* TAB: EDGE RULES & TRANSFORMS */}
+        {activeTab === 'rules' && (
+          <div className="flex-1 overflow-y-auto">
+            <RulesTab />
+          </div>
+        )}
+
+        {/* TAB: PRODUCTION CDN CONFIG EXPORTER */}
+        {activeTab === 'exportcdn' && (
+          <div className="flex-1 overflow-y-auto">
+            <CdnExporterTab />
+          </div>
+        )}
+
+        {/* TAB: CI/CD CACHE ASSERTION RUNNER */}
+        {activeTab === 'assert' && (
+          <div className="flex-1 overflow-y-auto">
+            <AssertTab />
           </div>
         )}
 
@@ -1167,6 +1310,16 @@ export function App() {
             )}
           </div>
         )}
+
+        {/* cURL & HAR Import Modal */}
+        <CurlHarModal
+          isOpen={showCurlHarModal}
+          onClose={() => setShowCurlHarModal(false)}
+          onSelectUrl={(u) => {
+            setTestUrl(u);
+            triggerTestRequest(u);
+          }}
+        />
       </main>
     </div>
   );

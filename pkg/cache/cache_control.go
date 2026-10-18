@@ -11,7 +11,16 @@ func ParseResponseDirectives(cacheControlHeaders []string, surrogateControlHeade
 
 	// Parse Surrogate-Control first if present (takes precedence on CDNs like Fastly/Akamai)
 	parseHeaderList(surrogateControlHeaders, func(key, val string) {
-		applyResponseDirective(&rd, key, val)
+		if key == "max-age" {
+			if secs, err := strconv.Atoi(val); err == nil && secs >= 0 {
+				rd.SurrogateMaxAge = &secs
+				if rd.MaxAge == nil {
+					rd.MaxAge = &secs
+				}
+			}
+		} else {
+			applyResponseDirective(&rd, key, val)
+		}
 	})
 
 	// Parse Cache-Control headers

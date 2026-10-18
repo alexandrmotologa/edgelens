@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alexandrmotologa/edgelens/internal/server"
+	"github.com/alexandrmotologa/edgelens/pkg/assert"
 	"github.com/alexandrmotologa/edgelens/pkg/cache"
 	"github.com/alexandrmotologa/edgelens/pkg/cdn"
 	"github.com/alexandrmotologa/edgelens/pkg/explainer"
@@ -48,6 +49,8 @@ func main() {
 		cmdPurge(os.Args[2:])
 	case "stampede":
 		cmdStampede(os.Args[2:])
+	case "assert":
+		cmdAssert(os.Args[2:])
 	case "version", "--version", "-v":
 		fmt.Println("EdgeLens v1.0.0 (RFC 9111 HTTP Caching Engine)")
 	case "help", "--help", "-h":
@@ -66,6 +69,7 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  serve      Start the EdgeLens proxy, mock origin, and visual studio")
 	fmt.Println("  inspect    Audit an HTTP endpoint and view RFC 9111 decision tree")
+	fmt.Println("  assert     Validate edge cache assertions for CI/CD pipelines")
 	fmt.Println("  purge      Invalidate cache entries by surrogate tag or URL")
 	fmt.Println("  stampede   Run a concurrent thundering herd benchmark against an endpoint")
 	fmt.Println("  version    Display EdgeLens version")
@@ -277,4 +281,89 @@ func cmdStampede(args []string) {
 		report.Percentiles.P95Ms, report.Percentiles.P99Ms, report.Percentiles.MaxMs)
 
 	fmt.Printf("Summary Note: %s\n", report.RecommendationNotes)
+}
+
+func cmdAssert(args []string) {
+	fs := flag.NewFlagSet("assert", flag.ExitOnError)
+	targetURL := fs.String("url", "", "Target URL to assert (required)")
+	expectStatus := fs.String("expect-status", "", "Expected cache status (e.g. HIT, MISS, STALE)")
+	minTTL := fs.Int("min-ttl", 0, "Minimum required freshness lifetime in seconds")
+	minGrade := fs.String("min-grade", "", "Minimum compliance grade (e.g. A+, A, B, C)")
+	disallowHeaders := fs.String("disallow", "", "Comma-separated list of headers that must not be present (e.g. Set-Cookie)")
+	requireHeaders := fs.String("require", "", "Comma-separated list of required headers (e.g. Cache-Control, ETag)")
+	jsonOutput := fs.Bool("json", false, "Output results in JSON format")
+	_ = fs.Parse(args)
+
+	if *targetURL == "" {
+		fmt.Println("Error: --url is required")
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	opts := assert.AssertionOptions{
+		URL:           *targetURL,
+		ExpectStatus:  *expectStatus,
+		MinTTLSeconds: *minTTL,
+		MinGrade:      *minGrade,
+	}
+
+	if *disallowHeaders != "" {
+		for _, h := range strings.Split(*disallowHeaders, ",") {
+			if strings.TrimSpace(h) != "" {
+				opts.DisallowedHeaders = append(opts.DisallowedHeaders, strings.TrimSpace(h))
+			}
+		}
+	}
+	if *requireHeaders != "" {
+		for _, h := range strings.Split(*requireHeaders, ",") {
+			if strings.TrimSpace(h) != "" {
+				opts.RequiredHeaders = append(opts.RequiredHeaders, strings.TrimSpace(h))
+			}
+		}
+	}
+
+	res, err := assert.RunAssertion(opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Assertion execution error: %v\n", err)
+		os.Exit(2)
+	}
+
+	if *jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(res)
+	} else {
+		fmt.Println()
+		fmt.Printf("=== EdgeLens CI/CD Cache Assertion Report ===\n")
+		fmt.Printf("Target URL:      %s\n", res.URL)
+		fmt.Printf("HTTP Status:     %d\n", res.HTTPStatus)
+		fmt.Printf("Detected Status: %s\n", res.CacheOutcome)
+		fmt.Printf("Calculated TTL:  %ds\n", res.CalculatedTTL)
+		fmt.Printf("Audit Grade:     %s (%d/100)\n", res.AuditGrade, res.AuditScore)
+		fmt.Printf("Duration:        %dms\n", res.DurationMs)
+		fmt.Println("---------------------------------------------")
+		for _, c := range res.Checks {
+			icon := "✓"
+			statusText := "PASS"
+			if !c.Passed {
+				icon = "✗"
+				statusText = "FAIL"
+			}
+			fmt.Printf("[%s] %s: %s (Expected: %s, Got: %s)\n", icon, statusText, c.Name, c.Expected, c.Actual)
+			if c.ErrorMessage != "" {
+				fmt.Printf("    Reason: %s\n", c.ErrorMessage)
+			}
+		}
+		fmt.Println("---------------------------------------------")
+		if res.Passed {
+			fmt.Printf("RESULT: PASSED - %s\n\n", res.Summary)
+		} else {
+			fmt.Printf("RESULT: FAILED - %s\n\n", res.Summary)
+			os.Exit(1)
+		}
+	}
+
+	if !res.Passed {
+		os.Exit(1)
+	}
 }
